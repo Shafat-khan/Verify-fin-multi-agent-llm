@@ -1,0 +1,20 @@
+# Secrets - NEVER commit
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Generated / large data - reproducible from scripts, don't commit
+data/raw/
+data/processed/
+data/chroma_store/
+outputs/logs/
+outputs/results/
+outputs/figures/
+
+# OS
+.DS_Store

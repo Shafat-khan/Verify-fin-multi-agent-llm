@@ -1,0 +1,80 @@
+# VERIFY-FIN main configuration
+# Referenced by every module via verifyfin.utils.io_utils.load_config()
+
+project:
+  name: "VERIFY-FIN"
+  seed: 42                       # for reproducibility of any stochastic sampling/ordering
+
+llm:
+  provider: "groq"
+  # NOTE: The proposal originally specified llama-3.1-70b-versatile.
+  # Groq deprecated this model (and its successor llama-3.3-70b-versatile)
+  # in mid-2026 and recommends openai/gpt-oss-120b as the replacement for
+  # this performance tier. This substitution should be documented as a
+  # methodological note in the dissertation (Methodology or Limitations
+  # chapter) — free-tier LLM API model availability is not guaranteed to
+  # be stable over a project's lifetime, and this is worth acknowledging
+  # explicitly rather than silently.
+  model: "openai/gpt-oss-120b"
+  temperature: 0.2                # low temperature: factual claim generation, not creative writing
+  max_tokens: 1024
+  rate_limit_per_minute: 28       # stay under Groq's ~30 req/min free-tier limit
+  cache_enabled: true
+  cache_dir: "./data/raw/llm_cache"
+
+embedding:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  device: "cpu"                   # no GPU required
+
+vector_store:
+  backend: "chromadb"
+  persist_dir: "./data/chroma_store"
+  collection_name: "verify_fin_knowledge_base"
+  chunk_size_tokens: 512
+  chunk_overlap_tokens: 64
+  semantic_chunking: true         # respect filing section boundaries (Gao et al., 2023)
+
+grounding:
+  # Thresholds routing each claim to GROUNDED / CHALLENGED / BLOCKED
+  # (continuous score -> 3-way routing, per Lit. Review Gap 3)
+  grounded_threshold: 0.75
+  challenged_threshold: 0.55      # below this -> BLOCKED; between this and grounded -> CHALLENGED (debate)
+
+data_sources:
+  edgar:
+    base_url: "https://efts.sec.gov/LATEST/search-index"
+    filing_types: ["10-K", "10-Q"]
+    user_agent: "VERIFY-FIN Research Project - MD Shafat Islam Khan (shafat.khan@northsouth.edu)"
+  fred:
+    series: ["FEDFUNDS", "CPIAUCSL", "UNRATE", "GDP"]   # macro indicators used by Macro Agent
+  yfinance:
+    lookback_days: 730
+
+# S&P 500 blue-chip tickers, well-covered by all three data sources (mitigates Risk 3, proposal §5)
+tickers:
+  knowledge_base:      # populate ChromaDB for at least these (Objective 2.3 minimum: 10)
+    - AAPL
+    - MSFT
+    - GOOGL
+    - AMZN
+    - NVDA
+    - JPM
+    - JNJ
+    - PG
+    - XOM
+    - KO
+  evaluation:           # fixed evaluation set: 5 tickers (proposal §2.5 / §5 scope-creep mitigation)
+    - AAPL
+    - MSFT
+    - JPM
+    - JNJ
+    - XOM
+
+evaluation:
+  time_periods: ["2024-Q1", "2024-Q2", "2024-Q3"]   # 5 tickers x 3 periods = 15 scenarios
+  conditions: ["single_agent", "unverified_multiagent", "verify_fin"]
+  max_agents: 5           # hard cap per proposal §5 scope-creep mitigation
+
+logging:
+  level: "INFO"
+  log_dir: "./outputs/logs"
